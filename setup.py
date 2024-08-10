@@ -7,8 +7,6 @@ setup(
         'configparser',
         'coloredlogs',
         'colorama',
-        'logging',
-        'os',
     ],
     description='A simple logger for Python',
     author='DamianoLozzi',
