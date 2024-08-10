@@ -8,7 +8,6 @@ setup(
         'coloredlogs',
         'colorama',
         'logging',
-        'json',
         'os',
     ],
     description='A simple logger for Python',
