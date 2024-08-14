@@ -4,18 +4,6 @@ import logging
 from logging.handlers import RotatingFileHandler
 import configparser
 
-config = configparser.ConfigParser(interpolation=None)  # Disable interpolation
-config.read('config.ini')
-
-LOG_DIRECTORY = config.get('LOGGING', 'LOG_DIRECTORY')
-LOG_FILENAME = config.get('LOGGING', 'LOG_FILENAME')
-JSON_LOG_FILENAME = config.get('LOGGING', 'JSON_LOG_FILENAME')
-COLORIZE_CONSOLE = config.getboolean('LOGGING', 'CONSOLE_COLORIZE')
-COLORIZE_LOG = config.getboolean('LOGGING', 'LOG_COLORIZE')
-COLORIZE_JSON = config.getboolean('LOGGING', 'JSON_COLORIZE')
-LOG_LEVEL = config.get('LOGGING', 'LOG_LEVEL')
-LOG_FORMAT = config.get('LOGGING', 'LOG_FORMAT')
-DATE_FORMAT = config.get('LOGGING', 'DATE_FORMAT')
 class Logger:
     _instance = None
 
@@ -26,26 +14,39 @@ class Logger:
         return cls._instance
 
 
-    def _initialize_logger(self, log_directory=LOG_DIRECTORY,
-                           log_filename=LOG_FILENAME,
-                           json_log_filename=JSON_LOG_FILENAME,
-                           colorize_console=COLORIZE_CONSOLE,
-                           colorize_log=COLORIZE_LOG,
-                           colorize_json=COLORIZE_JSON,
-                           log_level=LOG_LEVEL,
-                           log_format=LOG_FORMAT,
-                           date_format=DATE_FORMAT):
+    def _initialize_logger(self, config_file='config.ini',
+                       log_directory=None,
+                       log_filename='app.log',
+                       json_log_filename='app.json',
+                       colorize_console=True,
+                       colorize_log=False,
+                       colorize_json=False,
+                       log_level='INFO',
+                       log_format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                       date_format='%Y-%m-%d %H:%M:%S'):
+        config = configparser.ConfigParser()
+        
+        if os.path.exists(config_file):
+            config.read(config_file)
+            log_directory = config.get('Logging', 'log_directory', fallback=log_directory)
+            log_filename = config.get('Logging', 'log_filename', fallback=log_filename)
+            json_log_filename = config.get('Logging', 'json_log_filename', fallback=json_log_filename)
+            colorize_console = config.getboolean('Logging', 'colorize_console', fallback=colorize_console)
+            colorize_log = config.getboolean('Logging', 'colorize_log', fallback=colorize_log)
+            colorize_json = config.getboolean('Logging', 'colorize_json', fallback=colorize_json)
+            log_level = config.get('Logging', 'log_level', fallback=log_level)
+            log_format = config.get('Logging', 'log_format', fallback=log_format)
+            date_format = config.get('Logging', 'date_format', fallback=date_format)
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(self.get_log_level(log_level))
 
-        if log_directory is None:
-            log_directory = os.path.join(os.path.expanduser('~/var/log'), 'py_assistant_logs')
 
         if not os.path.exists(log_directory):
             os.makedirs(log_directory)
 
-        log_file_path = os.path.join(log_directory, log_filename)
-        json_log_file_path = os.path.join(log_directory, json_log_filename)
+        if log_directory:
+            log_file_path = os.path.join(log_directory, log_filename)
+            json_log_file_path = os.path.join(log_directory, json_log_filename)
 
         if self.logger.hasHandlers():
             self.logger.handlers.clear()
