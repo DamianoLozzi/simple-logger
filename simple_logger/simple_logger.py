@@ -4,6 +4,19 @@ import logging
 from logging.handlers import RotatingFileHandler
 import configparser
 
+config = configparser.ConfigParser(interpolation=None)  # Disable interpolation
+config.read('config.ini')
+
+LOG_DIRECTORY = config.get('LOGGING', 'LOG_DIRECTORY', fallback=None)
+LOG_FILENAME = config.get('LOGGING', 'LOG_FILENAME', fallback='app.log')
+JSON_LOG_FILENAME = config.get('LOGGING', 'JSON_LOG_FILENAME', fallback='app_log.json')
+COLORIZE_CONSOLE = config.getboolean('LOGGING', 'CONSOLE_COLORIZE', fallback=True)
+COLORIZE_LOG = config.getboolean('LOGGING', 'LOG_COLORIZE', fallback=False)
+COLORIZE_JSON = config.getboolean('LOGGING', 'JSON_COLORIZE', fallback=False)
+LOG_LEVEL = config.get('LOGGING', 'LOG_LEVEL', fallback='DEBUG')
+LOG_FORMAT = config.get('LOGGING', 'LOG_FORMAT', fallback='%(asctime)s | %(levelname)s\t|%(funcName)s |%(lineno)d\t| %(message)s')
+
+DATE_FORMAT = config.get('LOGGING', 'DATE_FORMAT', fallback='%Y-%m-%d %H:%M:%S')
 class Logger:
     _instance = None
 
@@ -14,50 +27,46 @@ class Logger:
         return cls._instance
 
 
-    def _initialize_logger(self, config_file='config.ini',
-                       log_directory=None,
-                       log_filename='app.log',
-                       json_log_filename='app.json',
-                       colorize_console=True,
-                       colorize_log=False,
-                       colorize_json=False,
-                       log_level='INFO',
-                       log_format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                       date_format='%Y-%m-%d %H:%M:%S'):
-        config = configparser.ConfigParser()
-        
-        if os.path.exists(config_file):
-            config.read(config_file)
-            log_directory = config.get('Logging', 'log_directory', fallback=log_directory)
-            log_filename = config.get('Logging', 'log_filename', fallback=log_filename)
-            json_log_filename = config.get('Logging', 'json_log_filename', fallback=json_log_filename)
-            colorize_console = config.getboolean('Logging', 'colorize_console', fallback=colorize_console)
-            colorize_log = config.getboolean('Logging', 'colorize_log', fallback=colorize_log)
-            colorize_json = config.getboolean('Logging', 'colorize_json', fallback=colorize_json)
-            log_level = config.get('Logging', 'log_level', fallback=log_level)
-            log_format = config.get('Logging', 'log_format', fallback=log_format)
-            date_format = config.get('Logging', 'date_format', fallback=date_format)
+    def _initialize_logger(self, log_directory=LOG_DIRECTORY,
+                           log_filename=LOG_FILENAME,
+                           json_log_filename=JSON_LOG_FILENAME,
+                           colorize_console=COLORIZE_CONSOLE,
+                           colorize_log=COLORIZE_LOG,
+                           colorize_json=COLORIZE_JSON,
+                           log_level=LOG_LEVEL,
+                           log_format=LOG_FORMAT,
+                           date_format=DATE_FORMAT):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(self.get_log_level(log_level))
+           
+        file_logging = False if log_directory is None else True
 
-
-        if not os.path.exists(log_directory):
-            os.makedirs(log_directory)
-
-        if log_directory:
+        
+        if file_logging is True:
             log_file_path = os.path.join(log_directory, log_filename)
             json_log_file_path = os.path.join(log_directory, json_log_filename)
 
-        if self.logger.hasHandlers():
-            self.logger.handlers.clear()
+            if not os.path.exists(log_directory):
+                os.makedirs(log_directory)
+                
+            if self.logger.hasHandlers():
+                self.logger.handlers.clear()
 
-        if colorize_log:
-            log_formatter = ColoredFormatter(log_format, datefmt=date_format)
-        else:
-            log_formatter = logging.Formatter(log_format, datefmt=date_format)
-        file_handler = RotatingFileHandler(log_file_path, maxBytes=5*1024*1024, backupCount=5)
-        file_handler.setFormatter(log_formatter)
-        self.logger.addHandler(file_handler)
+            if colorize_log:
+                log_formatter = ColoredFormatter(log_format, datefmt=date_format)
+            else:
+                log_formatter = logging.Formatter(log_format, datefmt=date_format)
+            file_handler = RotatingFileHandler(log_file_path, maxBytes=5*1024*1024, backupCount=5)
+            file_handler.setFormatter(log_formatter)
+            self.logger.addHandler(file_handler)
+            
+            if colorize_json:
+                json_formatter = ColoredFormatter(log_format, datefmt=date_format)
+            else:
+                json_formatter = JSONFormatter(log_format, datefmt=date_format)
+            json_file_handler = RotatingFileHandler(json_log_file_path, maxBytes=5*1024*1024, backupCount=5)
+            json_file_handler.setFormatter(json_formatter)
+            self.logger.addHandler(json_file_handler)
 
         if colorize_console:
             console_formatter = ColoredFormatter(log_format, datefmt=date_format)
@@ -66,14 +75,6 @@ class Logger:
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(console_formatter)
         self.logger.addHandler(console_handler)
-
-        if colorize_json:
-            json_formatter = ColoredFormatter(log_format, datefmt=date_format)
-        else:
-            json_formatter = JSONFormatter(log_format, datefmt=date_format)
-        json_file_handler = RotatingFileHandler(json_log_file_path, maxBytes=5*1024*1024, backupCount=5)
-        json_file_handler.setFormatter(json_formatter)
-        self.logger.addHandler(json_file_handler)
 
     def get_log_level(self, log_level):
         levels = {
