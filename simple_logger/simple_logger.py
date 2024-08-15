@@ -7,7 +7,7 @@ import configparser
 config = configparser.ConfigParser(interpolation=None)  # Disable interpolation
 config.read('config.ini')
 
-if 'LOGGING' in config:
+try:
     LOG_DIRECTORY = config.get('LOGGING', 'LOG_DIRECTORY', fallback=None)
     LOG_FILENAME = config.get('LOGGING', 'LOG_FILENAME', fallback='app.log')
     JSON_LOG_FILENAME = config.get('LOGGING', 'JSON_LOG_FILENAME', fallback='app_log.json')
@@ -17,7 +17,7 @@ if 'LOGGING' in config:
     LOG_LEVEL = config.get('LOGGING', 'LOG_LEVEL', fallback='DEBUG')
     LOG_FORMAT = config.get('LOGGING', 'LOG_FORMAT', fallback='%(asctime)s | %(levelname)s\t|%(funcName)s |%(lineno)d\t| %(message)s')
     DATE_FORMAT = config.get('LOGGING', 'DATE_FORMAT', fallback='%Y-%m-%d %H:%M:%S')
-else:
+except configparser.NoSectionError:
     print('No LOGGING section found in config.ini. Using default values.')
     LOG_DIRECTORY = None
     LOG_FILENAME = 'app.log'
