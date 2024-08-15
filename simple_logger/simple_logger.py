@@ -7,16 +7,28 @@ import configparser
 config = configparser.ConfigParser(interpolation=None)  # Disable interpolation
 config.read('config.ini')
 
-LOG_DIRECTORY = config.get('LOGGING', 'LOG_DIRECTORY', fallback=None)
-LOG_FILENAME = config.get('LOGGING', 'LOG_FILENAME', fallback='app.log')
-JSON_LOG_FILENAME = config.get('LOGGING', 'JSON_LOG_FILENAME', fallback='app_log.json')
-COLORIZE_CONSOLE = config.getboolean('LOGGING', 'CONSOLE_COLORIZE', fallback=True)
-COLORIZE_LOG = config.getboolean('LOGGING', 'LOG_COLORIZE', fallback=False)
-COLORIZE_JSON = config.getboolean('LOGGING', 'JSON_COLORIZE', fallback=False)
-LOG_LEVEL = config.get('LOGGING', 'LOG_LEVEL', fallback='DEBUG')
-LOG_FORMAT = config.get('LOGGING', 'LOG_FORMAT', fallback='%(asctime)s | %(levelname)s\t|%(funcName)s |%(lineno)d\t| %(message)s')
-
-DATE_FORMAT = config.get('LOGGING', 'DATE_FORMAT', fallback='%Y-%m-%d %H:%M:%S')
+if 'LOGGING' in config:
+    LOG_DIRECTORY = config.get('LOGGING', 'LOG_DIRECTORY', fallback=None)
+    LOG_FILENAME = config.get('LOGGING', 'LOG_FILENAME', fallback='app.log')
+    JSON_LOG_FILENAME = config.get('LOGGING', 'JSON_LOG_FILENAME', fallback='app_log.json')
+    COLORIZE_CONSOLE = config.getboolean('LOGGING', 'CONSOLE_COLORIZE', fallback=True)
+    COLORIZE_LOG = config.getboolean('LOGGING', 'LOG_COLORIZE', fallback=False)
+    COLORIZE_JSON = config.getboolean('LOGGING', 'JSON_COLORIZE', fallback=False)
+    LOG_LEVEL = config.get('LOGGING', 'LOG_LEVEL', fallback='DEBUG')
+    LOG_FORMAT = config.get('LOGGING', 'LOG_FORMAT', fallback='%(asctime)s | %(levelname)s\t|%(funcName)s |%(lineno)d\t| %(message)s')
+    DATE_FORMAT = config.get('LOGGING', 'DATE_FORMAT', fallback='%Y-%m-%d %H:%M:%S')
+else:
+    print('No LOGGING section found in config.ini. Using default values.')
+    LOG_DIRECTORY = None
+    LOG_FILENAME = 'app.log'
+    JSON_LOG_FILENAME = 'app_log.json'
+    COLORIZE_CONSOLE = True
+    COLORIZE_LOG = False
+    COLORIZE_JSON = False
+    LOG_LEVEL = 'DEBUG'
+    LOG_FORMAT = '%(asctime)s | %(levelname)s\t|%(funcName)s |%(lineno)d\t| %(message)s'
+    DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+    
 class Logger:
     _instance = None
 
