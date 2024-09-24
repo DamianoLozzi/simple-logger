@@ -103,7 +103,7 @@ class Logger:
         frame = inspect.currentframe()
         stacklevel = 1
         while frame:
-            if frame.f_globals['__name__'] == 'logging':
+            if frame.f_globals['__name__'] == 'simple_logger.simple_logger':
                 frame = frame.f_back
                 stacklevel += 1
             else:
