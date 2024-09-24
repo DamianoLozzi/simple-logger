@@ -1,8 +1,9 @@
-import os
-import json
-import logging
 from logging.handlers import RotatingFileHandler
 import configparser
+import inspect
+import logging
+import json
+import os
 
 config = configparser.ConfigParser(interpolation=None)  # Disable interpolation
 config.read('config.ini')
@@ -53,7 +54,6 @@ class Logger:
            
         file_logging = False if log_directory is None else True
 
-        
         if file_logging is True:
             log_file_path = os.path.join(log_directory, log_filename)
             json_log_file_path = os.path.join(log_directory, json_log_filename)
@@ -75,7 +75,7 @@ class Logger:
             if colorize_json:
                 json_formatter = ColoredFormatter(log_format, datefmt=date_format)
             else:
-                json_formatter = JSONFormatter(log_format, datefmt=date_format)
+                json_formatter = logging.Formatter(log_format, datefmt=date_format)
             json_file_handler = RotatingFileHandler(json_log_file_path, maxBytes=5*1024*1024, backupCount=5)
             json_file_handler.setFormatter(json_formatter)
             self.logger.addHandler(json_file_handler)
@@ -98,20 +98,32 @@ class Logger:
         }
         return levels.get(log_level.upper(), logging.DEBUG)
 
+    def _get_stacklevel(self):
+        # Find the first frame that is not part of the logging module
+        frame = inspect.currentframe()
+        stacklevel = 1
+        while frame:
+            if frame.f_globals['__name__'] == 'logging':
+                frame = frame.f_back
+                stacklevel += 1
+            else:
+                break
+        return stacklevel
+
     def error(self, msg, *args, **kwargs):
-        self.logger.error(msg, *args, **kwargs, stacklevel=2)
+        self.logger.error(msg, *args, **kwargs, stacklevel=self._get_stacklevel())
 
     def info(self, msg, *args, **kwargs):
-        self.logger.info(msg, *args, **kwargs, stacklevel=2)
+        self.logger.info(msg, *args, **kwargs, stacklevel=self._get_stacklevel())
 
     def warning(self, msg, *args, **kwargs):
-        self.logger.warning(msg, *args, **kwargs, stacklevel=2)
+        self.logger.warning(msg, *args, **kwargs, stacklevel=self._get_stacklevel())
 
     def debug(self, msg, *args, **kwargs):
-        self.logger.debug(msg, *args, **kwargs, stacklevel=2)
+        self.logger.debug(msg, *args, **kwargs, stacklevel=self._get_stacklevel())
 
     def critical(self, msg, *args, **kwargs):
-        self.logger.critical(msg, *args, **kwargs, stacklevel=2)
+        self.logger.critical(msg, *args, **kwargs, stacklevel=self._get_stacklevel())
 
 class ColoredFormatter(logging.Formatter):
     COLORS = {
