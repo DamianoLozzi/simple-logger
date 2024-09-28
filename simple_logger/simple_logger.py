@@ -102,8 +102,17 @@ class Logger:
         # Find the first frame that is not part of the logging module
         frame = inspect.currentframe()
         stacklevel = 1
+        log_levels = [
+        logging.getLevelName(logging.DEBUG),
+        logging.getLevelName(logging.INFO),
+        logging.getLevelName(logging.WARNING),
+        logging.getLevelName(logging.ERROR),
+        logging.getLevelName(logging.CRITICAL)
+        ]
         while frame:
-            if frame.f_globals['__name__'] == 'simple_logger.simple_logger':
+            name=frame.f_globals['__name__']
+            print(f"Name: {name}")
+            if 'simple_logger' in name or any(level in name for level in log_levels):
                 frame = frame.f_back
                 stacklevel += 1
             else:
