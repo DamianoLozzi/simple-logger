@@ -162,3 +162,5 @@ cython_debug/
 #.idea/
 .vscode/PythonImportHelper-v2-Completion.json
 test.py
+logtest.py
+test_logger.py
