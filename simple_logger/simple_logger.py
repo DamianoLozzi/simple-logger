@@ -1,126 +1,50 @@
 from logging.handlers import RotatingFileHandler
 import configparser
-import inspect
 import logging
 import json
 import os
+from typing import Optional
 
-config = configparser.ConfigParser(interpolation=None)
-config.read('config.ini')
 
-try:
-    LOG_DIRECTORY = config.get('LOGGING', 'LOG_DIRECTORY', fallback=None)
-    LOG_FILENAME = config.get('LOGGING', 'LOG_FILENAME', fallback='app.log')
-    JSON_LOG_FILENAME = config.get('LOGGING', 'JSON_LOG_FILENAME', fallback='app_log.json')
-    COLORIZE_CONSOLE = config.getboolean('LOGGING', 'CONSOLE_COLORIZE', fallback=True)
-    COLORIZE_LOG = config.getboolean('LOGGING', 'LOG_COLORIZE', fallback=False)
-    COLORIZE_JSON = config.getboolean('LOGGING', 'JSON_COLORIZE', fallback=False)
-    LOG_LEVEL = config.get('LOGGING', 'LOG_LEVEL', fallback='DEBUG')
-    LOG_FORMAT = config.get('LOGGING', 'LOG_FORMAT', fallback='%(asctime)s | %(levelname)s\t| %(filename)s \t|%(lineno)d\t| %(message)s')
-    DATE_FORMAT = config.get('LOGGING', 'DATE_FORMAT', fallback='%Y-%m-%d %H:%M:%S')
-except configparser.NoSectionError:
-    print('No LOGGING section found in config.ini. Using default values.')
-    LOG_DIRECTORY = None
-    LOG_FILENAME = 'app.log'
-    JSON_LOG_FILENAME = 'app_log.json'
-    COLORIZE_CONSOLE = True
-    COLORIZE_LOG = False
-    COLORIZE_JSON = False
-    LOG_LEVEL = 'DEBUG'
-    LOG_FORMAT = '%(asctime)s | %(levelname)s\t| %(filename)s \t|%(lineno)d\t| %(message)s'
-    DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+def _get_env_or_config_str(section: str, option: str, env_var: str, fallback: str, parser: configparser.ConfigParser) -> str:
+    val = os.getenv(env_var)
+    if val:
+        return val
+    return parser.get(section, option, fallback=fallback)
 
-class Logger(logging.Logger):
-    def __init__(self):
-        super().__init__(__name__)
-        self._initialize_logger()
-        
-    def _initialize_logger(self, log_directory=LOG_DIRECTORY,
-                           log_filename=LOG_FILENAME,
-                           json_log_filename=JSON_LOG_FILENAME,
-                           colorize_console=COLORIZE_CONSOLE,
-                           colorize_log=COLORIZE_LOG,
-                           colorize_json=COLORIZE_JSON,
-                           log_level=LOG_LEVEL,
-                           log_format=LOG_FORMAT,
-                           date_format=DATE_FORMAT):
-        self.setLevel(self.get_log_level(log_level))
-           
-        file_logging = False if log_directory is None else True
 
-        if file_logging is True:
-            log_file_path = os.path.join(log_directory, log_filename)
-            json_log_file_path = os.path.join(log_directory, json_log_filename)
+def _get_env_or_config_bool(section: str, option: str, env_var: str, fallback: bool, parser: configparser.ConfigParser) -> bool:
+    val = os.getenv(env_var)
+    if val is not None:
+        return val.strip().lower() not in ('0', 'false', '')
+    return parser.getboolean(section, option, fallback=fallback)
 
-            if not os.path.exists(log_directory):
-                os.makedirs(log_directory)
-                
-            if self.hasHandlers():
-                self.handlers.clear()
-
-            if colorize_log:
-                log_formatter = ColoredFormatter(log_format, datefmt=date_format)
-            else:
-                log_formatter = logging.Formatter(log_format, datefmt=date_format)
-            file_handler = RotatingFileHandler(log_file_path, maxBytes=5*1024*1024, backupCount=5)
-            file_handler.setFormatter(log_formatter)
-            self.addHandler(file_handler)
-            
-            if colorize_json:
-                json_formatter = ColoredFormatter(log_format, datefmt=date_format)
-            else:
-                json_formatter = logging.Formatter(log_format, datefmt=date_format)
-            json_file_handler = RotatingFileHandler(json_log_file_path, maxBytes=5*1024*1024, backupCount=5)
-            json_file_handler.setFormatter(json_formatter)
-            self.addHandler(json_file_handler)
-
-        if colorize_console:
-            console_formatter = ColoredFormatter(log_format, datefmt=date_format)
-        else:
-            console_formatter = logging.Formatter(log_format, datefmt=date_format)
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(console_formatter)
-        self.addHandler(console_handler)
-        
-    def get_log_level(self, log_level):
-        levels = {
-            'DEBUG': logging.DEBUG,
-            'INFO': logging.INFO,
-            'WARNING': logging.WARNING,
-            'ERROR': logging.ERROR,
-            'CRITICAL': logging.CRITICAL
-        }
-        return levels.get(log_level.upper(), logging.DEBUG)  
-    
-
-        
- 
 
 class ColoredFormatter(logging.Formatter):
     COLORS = {
-        'WARNING': '\033[93m',  # Yellow
-        'INFO': '\033[92m',     # Green
         'DEBUG': '\033[94m',    # Blue
-        'CRITICAL': '\033[95m', # Magenta
+        'INFO': '\033[92m',     # Green
+        'WARNING': '\033[93m',  # Yellow
         'ERROR': '\033[91m',    # Red
+        'CRITICAL': '\033[95m', # Magenta
         'RESET': '\033[0m',     # Reset
     }
 
     def format(self, record):
         levelname = record.levelname
         if levelname in self.COLORS:
-            levelname_color = self.COLORS[levelname] + levelname + self.COLORS['RESET']
-            record.levelname = levelname_color
-        result = super().format(record)
-        record.levelname = levelname  # Reset the levelname to the original value
-        return result
+            colored = self.COLORS[levelname] + levelname + self.COLORS['RESET']
+            record.levelname = colored
+        formatted = super().format(record)
+        record.levelname = levelname  # ripristina
+        return formatted
+
 
 class JSONFormatter(logging.Formatter):
     def format(self, record):
-        original_levelname = record.levelname  # Save the original levelname
         log_record = {
             'time': self.formatTime(record, self.datefmt),
-            'level': original_levelname,
+            'level': record.levelname,
             'message': record.getMessage(),
             'module': record.module,
             'funcName': record.funcName if record.funcName != '<module>' else 'main',
@@ -129,3 +53,85 @@ class JSONFormatter(logging.Formatter):
         if record.exc_info:
             log_record['exception'] = self.formatException(record.exc_info)
         return json.dumps(log_record, ensure_ascii=False)
+
+
+def _resolve_log_level(level_str: str) -> int:
+    mapping = {
+        'DEBUG': logging.DEBUG,
+        'INFO': logging.INFO,
+        'WARNING': logging.WARNING,
+        'ERROR': logging.ERROR,
+        'CRITICAL': logging.CRITICAL
+    }
+    return mapping.get(level_str.upper(), logging.DEBUG)
+
+
+class Logger(logging.Logger):
+    def __init__(self):
+        super().__init__(__name__)
+        self._load_config()
+        self._initialize_logger()
+
+    def _load_config(self):
+        self.parser = configparser.ConfigParser(interpolation=None)
+        if os.path.isfile('config.ini'):
+            self.parser.read('config.ini')
+        else:
+            self.parser.read_dict({'LOGGING': {}})  # se manca, usiamo dict vuoto
+
+        self.LOG_DIRECTORY     = _get_env_or_config_str(
+            'LOGGING', 'LOG_DIRECTORY', 'LOG_DIRECTORY', '', self.parser)
+        self.LOG_FILENAME      = _get_env_or_config_str(
+            'LOGGING', 'LOG_FILENAME', 'LOG_FILENAME', 'app.log', self.parser)
+        self.JSON_LOG_FILENAME = _get_env_or_config_str(
+            'LOGGING', 'JSON_LOG_FILENAME', 'JSON_LOG_FILENAME', 'app_log.json', self.parser)
+        self.COLORIZE_CONSOLE  = _get_env_or_config_bool(
+            'LOGGING', 'CONSOLE_COLORIZE', 'CONSOLE_COLORIZE', True, self.parser)
+        self.COLORIZE_LOG      = _get_env_or_config_bool(
+            'LOGGING', 'LOG_COLORIZE', 'LOG_COLORIZE', False, self.parser)
+        self.COLORIZE_JSON     = _get_env_or_config_bool(
+            'LOGGING', 'JSON_COLORIZE', 'JSON_COLORIZE', False, self.parser)
+        self.LOG_LEVEL         = _get_env_or_config_str(
+            'LOGGING', 'LOG_LEVEL', 'LOG_LEVEL', 'DEBUG', self.parser)
+        self.LOG_FORMAT        = _get_env_or_config_str(
+            'LOGGING', 'LOG_FORMAT', 'LOG_FORMAT', '%(asctime)s | %(levelname)s | %(filename)s:%(lineno)d | %(message)s', self.parser)
+        self.DATE_FORMAT       = _get_env_or_config_str(
+            'LOGGING', 'DATE_FORMAT', 'DATE_FORMAT', '%Y-%m-%d %H:%M:%S', self.parser)
+
+    def _initialize_logger(self):
+        self.setLevel(_resolve_log_level(self.LOG_LEVEL))
+
+        if self.hasHandlers():
+            for h in list(self.handlers):
+                self.removeHandler(h)
+
+        if self.LOG_DIRECTORY:
+            os.makedirs(self.LOG_DIRECTORY, exist_ok=True)
+            log_path = os.path.join(self.LOG_DIRECTORY, self.LOG_FILENAME)
+            json_log_path = os.path.join(self.LOG_DIRECTORY, self.JSON_LOG_FILENAME)
+
+            file_formatter = (
+                ColoredFormatter(self.LOG_FORMAT, datefmt=self.DATE_FORMAT)
+                if self.COLORIZE_LOG else logging.Formatter(self.LOG_FORMAT, datefmt=self.DATE_FORMAT)
+            )
+            file_handler = RotatingFileHandler(log_path, maxBytes=5*1024*1024, backupCount=5)
+            file_handler.setFormatter(file_formatter)
+            self.addHandler(file_handler)
+
+            json_formatter = (
+                ColoredFormatter(self.LOG_FORMAT, datefmt=self.DATE_FORMAT)
+                if self.COLORIZE_JSON else JSONFormatter(datefmt=self.DATE_FORMAT)
+            )
+            json_handler = RotatingFileHandler(json_log_path, maxBytes=5*1024*1024, backupCount=5)
+            json_handler.setFormatter(json_formatter)
+            self.addHandler(json_handler)
+
+        console_formatter = (
+            ColoredFormatter(self.LOG_FORMAT, datefmt=self.DATE_FORMAT)
+            if self.COLORIZE_CONSOLE else logging.Formatter(self.LOG_FORMAT, datefmt=self.DATE_FORMAT)
+        )
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(console_formatter)
+        self.addHandler(console_handler)
+
+log = Logger()
